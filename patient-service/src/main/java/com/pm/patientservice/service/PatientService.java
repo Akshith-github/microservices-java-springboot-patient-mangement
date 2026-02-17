@@ -41,7 +41,7 @@ public class PatientService {
         );
 
         // prevent updating patient with other patient email
-        if(patientRepository.existsByEmail(patientRequestDTO.getEmail())) {
+        if(patientRepository.existsByEmailAndIdNot(patientRequestDTO.getEmail(),  patientID)) {
             throw new EmailAlreadyExistsException("A patient with this email already exists "+patientRequestDTO.getEmail());
         }
         patient.setName(patientRequestDTO.getName());
