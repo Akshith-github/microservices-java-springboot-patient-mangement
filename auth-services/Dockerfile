@@ -4,9 +4,6 @@ WORKDIR /app
 
 COPY pom.xml .
 
-ARG JWT_SECRET=dummy_secret_for_build_purposes_only
-ENV JWT_SECRET=${JWT_SECRET}
-
 RUN mvn dependency:go-offline -B
 
 COPY src ./src
