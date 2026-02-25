@@ -20,6 +20,69 @@ The Infrastructure module contains scripts and configuration for deploying and m
 3. **Configuration:**
 		- Adjust environment variables and resource files as needed.
 
+## Infrastructure Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph AWS_Cloud["☁️ AWS Cloud"]
+        subgraph VPC["PatientManagementVPC (2 AZs)"]
+            subgraph ECS["ECS Cluster"]
+                APIGateway["🌐 API Gateway<br/>Fargate, ALB<br/>Port 4004"]
+                Auth["🔐 Auth Service<br/>Fargate<br/>Port 4005"]
+                Patient["👤 Patient Service<br/>Fargate<br/>Port 4000"]
+                Billing["💳 Billing Service<br/>Fargate<br/>Port 4001, 9001"]
+                Analytics["📊 Analytics Service<br/>Fargate<br/>Port 4002"]
+            end
+            
+            subgraph RDS["RDS PostgreSQL 17.2"]
+                AuthDB[("auth-service-db<br/>t2.micro, 20GB")]
+                PatientDB[("patient-service-db<br/>t2.micro, 20GB")]
+            end
+            
+            subgraph MSK["MSK"]
+                Kafka[["kafka-cluster<br/>Kafka 3.6.0<br/>2 Brokers"]]
+            end
+        end
+    end
+    
+    Auth --> AuthDB
+    Patient --> PatientDB
+    Patient --> Kafka
+    Billing --> Kafka
+    Analytics --> Kafka
+    Patient -->|gRPC| Billing
+    APIGateway --> Auth
+    APIGateway --> Patient
+    APIGateway --> Billing
+    APIGateway --> Analytics
+    
+    style ECS fill:#D0FFD0,stroke:#333
+    style RDS fill:#FFF8DC,stroke:#333
+    style MSK fill:#FFE4E1,stroke:#333
+```
+
+```mermaid
+flowchart LR
+    subgraph LocalStack["🖥️ LocalStack"]
+        CDK["AWS CDK App"]
+        CDK -->|synth| Stack["LocalStack"]
+    end
+    
+    subgraph Resources["Provisioned Resources"]
+        VPC["VPC (2 AZs)"]
+        ECS["ECS Cluster"]
+        RDS["RDS Instances"]
+        MSK["MSK Cluster"]
+        ALB["Application LB"]
+    end
+    
+    Stack --> VPC
+    Stack --> ECS
+    Stack --> RDS
+    Stack --> MSK
+    Stack --> ALB
+```
+
 ## Source Structure
 - `src/main/java/`: Infrastructure automation logic (if present).
 - `src/main/resources/`: Configuration files.

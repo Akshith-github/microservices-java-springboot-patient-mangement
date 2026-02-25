@@ -27,6 +27,45 @@ The API Gateway acts as the single entry point for all client requests, routing 
 5. **Response to Client:**
 		- Gateway returns the final response to the client.
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    subgraph Client
+        User((👤 User))
+    end
+    
+    subgraph API_Gateway["🌐 API Gateway (Port 4004)"]
+        Filter["🔒 Auth Filter"]
+        Router["🔀 Router"]
+        Aggregator["📦 Response Aggregator"]
+    end
+    
+    subgraph Backend_Services["Backend Microservices"]
+        Auth["🔐 Auth Service<br/>Port 4005"]
+        Patient["👤 Patient Service<br/>Port 4000"]
+        Billing["💳 Billing Service<br/>Port 4001"]
+        Analytics["📊 Analytics Service<br/>Port 4002"]
+    end
+    
+    User -->|HTTP Request| Filter
+    Filter -->|Validate JWT| Auth
+    Filter --> Router
+    Router -->|/patients/**| Patient
+    Router -->|/billing/**| Billing
+    Router -->|/analytics/**| Analytics
+    Patient --> Aggregator
+    Billing --> Aggregator
+    Analytics --> Aggregator
+    Aggregator -->|HTTP Response| User
+    
+    style API_Gateway fill:#6CA6CD,stroke:#333
+    style Auth fill:#90EE90,stroke:#333
+    style Patient fill:#90EE90,stroke:#333
+    style Billing fill:#90EE90,stroke:#333
+    style Analytics fill:#90EE90,stroke:#333
+```
+
 ## Source Structure
 - `src/main/java/`: Gateway logic, routing, and filters.
 - `src/main/resources/`: Configuration files (`application.properties`).

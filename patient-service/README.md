@@ -25,6 +25,66 @@ The Patient Service manages CRUD operations for patient records and emits events
 4. **Response:**
 		- Returns result or status to the caller.
 
+## Service Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph Client
+        Gateway["🌐 API Gateway<br/>REST (4000)"]
+    end
+    
+    subgraph Patient_Service["👤 Patient Service (Port 4000)"]
+        Controller["REST Controller"]
+        Service["Patient Service Logic"]
+        Repo["Repository Layer"]
+        EventPublisher["Kafka Producer"]
+        GrpcClient["gRPC Client"]
+    end
+    
+    subgraph External
+        Billing["💳 Billing Service<br/>gRPC (9001)"]
+        Kafka[["📨 Kafka<br/>patient topic"]]
+        DB[("🗄️ patient-service-db<br/>PostgreSQL")]
+    end
+    
+    Gateway -->|REST| Controller
+    Controller --> Service
+    Service --> Repo
+    Service --> EventPublisher
+    Service --> GrpcClient
+    Repo --> DB
+    EventPublisher -->|PatientEvent| Kafka
+    GrpcClient -->|CreateBillingAccount| Billing
+    
+    style Patient_Service fill:#90EE90,stroke:#333
+    style DB fill:#FFD700,stroke:#333
+    style Kafka fill:#FFA07A,stroke:#333
+    style Billing fill:#90EE90,stroke:#333
+```
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 User
+    participant Gateway as 🌐 API Gateway
+    participant Patient as 👤 Patient Service
+    participant DB as 🗄️ Patient DB
+    participant Billing as 💳 Billing Service
+    participant Kafka as 📨 Kafka
+    participant Analytics as 📊 Analytics
+    
+    Note over User,Analytics: Create Patient Flow
+    User->>Gateway: POST /patients
+    Gateway->>Patient: Forward request
+    Patient->>DB: Save patient
+    DB-->>Patient: Patient saved
+    Patient->>Billing: gRPC CreateBillingAccount
+    Billing-->>Patient: Account created
+    Patient->>Kafka: Publish PatientEvent (CREATED)
+    Kafka-->>Analytics: Consume PatientEvent
+    Patient-->>Gateway: Patient response
+    Gateway-->>User: 201 Created
+```
+
 ## Source Structure
 - `src/main/java/`: Controllers, service classes, and event logic.
 - `src/main/resources/`: Configuration files (`application.properties`, `data.sql`).

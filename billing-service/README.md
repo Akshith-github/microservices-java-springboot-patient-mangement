@@ -25,6 +25,55 @@ The Billing Service manages billing accounts and transactions, and communicates 
 4. **Response:**
 		- Returns result or status to the caller.
 
+## Service Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph Clients
+        Gateway["🌐 API Gateway<br/>REST (4001)"]
+        Patient["👤 Patient Service<br/>gRPC (9001)"]
+    end
+    
+    subgraph Billing_Service["💳 Billing Service"]
+        REST_API["REST Controller<br/>Port 4001"]
+        GRPC_Server["gRPC Server<br/>Port 9001"]
+        Service["Billing Service Logic"]
+        Repo["Repository Layer"]
+    end
+    
+    subgraph Persistence
+        DB[("🗄️ Billing DB<br/>PostgreSQL")]
+        Kafka[["📨 Kafka<br/>BillingEvent"]]
+    end
+    
+    Gateway -->|REST| REST_API
+    Patient -->|gRPC| GRPC_Server
+    REST_API --> Service
+    GRPC_Server --> Service
+    Service --> Repo
+    Repo --> DB
+    Service -->|Publish| Kafka
+    
+    style Billing_Service fill:#90EE90,stroke:#333
+    style DB fill:#FFD700,stroke:#333
+    style Kafka fill:#FFA07A,stroke:#333
+```
+
+```mermaid
+sequenceDiagram
+    participant Patient as 👤 Patient Service
+    participant Billing as 💳 Billing Service
+    participant DB as 🗄️ Database
+    participant Kafka as 📨 Kafka
+    
+    Note over Patient,Kafka: gRPC Billing Account Creation
+    Patient->>Billing: gRPC CreateBillingAccount(patientId)
+    Billing->>DB: Insert billing record
+    DB-->>Billing: Success
+    Billing->>Kafka: Publish BillingEvent
+    Billing-->>Patient: BillingAccount response
+```
+
 ## Source Structure
 - `src/main/java/`: Controllers, service classes, and gRPC/event logic.
 - `src/main/resources/`: Configuration files (`application.properties`).

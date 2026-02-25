@@ -29,6 +29,53 @@ The Analytics Service is designed to consume patient-related events from a Kafka
 4. **Error Handling:**
 		- If deserialization fails, an error is logged.
 
+## Event Processing Diagram
+
+```mermaid
+flowchart LR
+    subgraph Producers
+        Patient["👤 Patient Service"]
+        Billing["💳 Billing Service"]
+    end
+    
+    subgraph Kafka["📨 Kafka MSK Cluster"]
+        Topic[["patient topic"]]
+    end
+    
+    subgraph Analytics_Service["📊 Analytics Service (Port 4002)"]
+        Consumer["KafkaConsumer<br/>@KafkaListener"]
+        Protobuf["Protobuf Parser<br/>PatientEvent"]
+        Logger["Analytics Logger"]
+    end
+    
+    Patient -->|PatientEvent| Topic
+    Billing -->|BillingEvent| Topic
+    Topic --> Consumer
+    Consumer --> Protobuf
+    Protobuf --> Logger
+    
+    style Analytics_Service fill:#90EE90,stroke:#333
+    style Topic fill:#FFA07A,stroke:#333
+```
+
+```mermaid
+sequenceDiagram
+    participant Patient as 👤 Patient Service
+    participant Kafka as 📨 Kafka
+    participant Consumer as 📊 KafkaConsumer
+    participant Logger as 📝 Logger
+    
+    Note over Patient,Logger: Event Consumption Flow
+    Patient->>Kafka: Publish PatientEvent (Protobuf bytes)
+    Kafka->>Consumer: Deliver message
+    Consumer->>Consumer: PatientEvent.parseFrom(bytes)
+    alt Success
+        Consumer->>Logger: Log patient details (ID, name, email)
+    else Parse Error
+        Consumer->>Logger: Log error
+    end
+```
+
 ## API & Endpoints
 - This service does not expose REST APIs by default. It operates as a background event processor.
 - All analytics are handled internally via Kafka event consumption and logging.
