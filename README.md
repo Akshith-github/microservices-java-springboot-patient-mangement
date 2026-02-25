@@ -126,6 +126,56 @@ Auth_Service --> BillingDB
 @enduml
 ```
 
+### Mermaid Diagram (GitHub Native Support)
+
+```mermaid
+flowchart TB
+    subgraph AWS_Cloud["☁️ AWS Cloud"]
+        subgraph VPC["PatientManagementVPC (2 AZs)"]
+            subgraph ECS["ECS Cluster: patient-management.local"]
+                API_Gateway["🌐 API Gateway<br/>Port 4004<br/>ALB Enabled"]
+                Auth_Service["🔐 Auth Service<br/>Port 4005<br/>JWT Auth"]
+                Patient_Service["👤 Patient Service<br/>Port 4000"]
+                Billing_Service["💳 Billing Service<br/>Port 4001 REST<br/>Port 9001 gRPC"]
+                Analytics_Service["📊 Analytics Service<br/>Port 4002"]
+            end
+            
+            subgraph RDS["RDS PostgreSQL 17.2"]
+                AuthDB[("🗄️ auth-service-db<br/>t2.micro, 20GB")]
+                PatientDB[("🗄️ patient-service-db<br/>t2.micro, 20GB")]
+            end
+            
+            subgraph MSK["MSK Kafka"]
+                Kafka[["📨 kafka-cluster<br/>Kafka 3.6.0<br/>2 Brokers"]]
+            end
+        end
+    end
+    
+    User((👤 User)) -->|REST 4004| API_Gateway
+    
+    API_Gateway -->|REST 4005<br/>Login/Validate| Auth_Service
+    API_Gateway -->|REST 4000<br/>CRUD| Patient_Service
+    API_Gateway -->|REST 4001<br/>Billing APIs| Billing_Service
+    API_Gateway -->|REST 4002<br/>Analytics| Analytics_Service
+    
+    Patient_Service -->|gRPC 9001| Billing_Service
+    Patient_Service -->|Publish PatientEvent| Kafka
+    Billing_Service -->|Publish BillingEvent| Kafka
+    Kafka -->|Consume PatientEvent| Analytics_Service
+    
+    Auth_Service -->|JDBC 5432| AuthDB
+    Patient_Service -->|JDBC 5432| PatientDB
+
+    style API_Gateway fill:#6CA6CD,stroke:#333,color:#000
+    style Auth_Service fill:#90EE90,stroke:#333,color:#000
+    style Patient_Service fill:#90EE90,stroke:#333,color:#000
+    style Billing_Service fill:#90EE90,stroke:#333,color:#000
+    style Analytics_Service fill:#90EE90,stroke:#333,color:#000
+    style AuthDB fill:#FFD700,stroke:#333,color:#000
+    style PatientDB fill:#FFD700,stroke:#333,color:#000
+    style Kafka fill:#FFA07A,stroke:#333,color:#000
+```
+
 ## Overview
 This project is a modular microservices-based system for managing patients, billing, analytics, authentication, and API gateway. Each service is independently deployable and communicates via REST, gRPC, or Kafka events.
 
