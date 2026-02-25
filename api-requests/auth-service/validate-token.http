@@ -1,4 +1,4 @@
 ### GET request to example server
-GET http://localhost:4004/auth/validate
+GET http://lb-20e42d7f.elb.localhost.localstack.cloud:4004/auth/validate
 Authorization: Bearer {{token}}
 ###
