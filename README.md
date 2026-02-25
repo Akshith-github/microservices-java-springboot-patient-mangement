@@ -1,4 +1,130 @@
+
 # Microservices Patient Management Application
+
+## Architecture Diagram
+# diagram
+
+```plantuml
+@startuml
+skinparam componentStyle rectangle
+skinparam backgroundColor #FEFEFE
+
+skinparam component {
+  BackgroundColor<<gateway>> #6CA6CD
+  BackgroundColor<<service>> #90EE90
+  BackgroundColor<<database>> #FFD700
+  BackgroundColor<<messaging>> #FFA07A
+  BorderColor #333333
+  FontColor #000000
+}
+
+skinparam package {
+  BackgroundColor #E8E8E8
+  BorderColor #666666
+}
+
+skinparam database {
+  BackgroundColor #FFD700
+  BorderColor #333333
+}
+
+skinparam queue {
+  BackgroundColor #FFA07A
+  BorderColor #333333
+}
+
+actor User #LightBlue
+
+package "AWS Cloud" {
+  package "PatientManagementVPC (2 AZs)" as VPC #E0F0FF {
+    
+    package "ECS Cluster: patient-management.local" as ECS #D0FFD0 {
+      
+      component "API Gateway\n(Port 4004)\n[ALB Enabled]" as API_Gateway <<gateway>>
+      
+      component "Auth Service\n(Port 4005)\nJWT_SECRET configured" as Auth_Service <<service>>
+      
+      component "Patient Service\n(Port 4000)\nBILLING_SERVICE_GRPC_PORT: 9001" as Patient_Service <<service>>
+      
+      component "Billing Service\n(Port 4001 REST)\n(Port 9001 gRPC)" as Billing_Service <<service>>
+      
+      component "Analytics Service\n(Port 4002)" as Analytics_Service <<service>>
+    }
+    
+    package "RDS Databases (PostgreSQL 17.2)" as RDS #FFF8DC {
+      database "auth-service-db\n(t2.micro, 20GB)" as AuthDB
+      database "patient-service-db\n(t2.micro, 20GB)" as PatientDB
+    }
+    
+    package "MSK Kafka Cluster" as MSK #FFE4E1 {
+      queue "kafka-cluster\n(Kafka 3.6.0)\n2 Broker Nodes\nkafka.m5.xlarge" as Kafka
+    }
+  }
+}
+
+User --> API_Gateway : REST (4004)
+API_Gateway --> Auth_Service : REST (4005)\nLogin/Validate
+API_Gateway --> Patient_Service : REST (4000)\nCRUD
+API_Gateway --> Billing_Service : REST (4001)\nBilling APIs
+API_Gateway --> Analytics_Service : REST (4002)\nAnalytics
+
+Patient_Service --> Billing_Service : gRPC (9001)
+Patient_Service --> Kafka : Publish PatientEvent
+Billing_Service --> Kafka : Publish BillingEvent
+Analytics_Service <-- Kafka : Consume PatientEvent
+
+Auth_Service --> AuthDB : JDBC (5432)
+Patient_Service --> PatientDB : JDBC (5432)
+
+note right of API_Gateway
+  Spring Profile: prod
+  AUTH_SERVICE_URL: host.docker.internal:4005
+end note
+
+note right of Patient_Service
+  Depends on:
+  - patient-service-db
+  - billing-service
+  - msk-cluster
+end note
+
+note right of Analytics_Service
+  Depends on:
+  - msk-cluster
+end note
+
+legend right
+  |= Color |= Type |
+  | <#6CA6CD> | API Gateway |
+  | <#90EE90> | Microservices |
+  | <#FFD700> | Databases |
+  | <#FFA07A> | Messaging |
+endlegend
+
+@enduml
+```
+
+```plantuml
+actor User
+User -> API_Gateway: HTTP Request
+API_Gateway -> Auth_Service: Auth/Token Validation
+API_Gateway -> Patient_Service: Patient CRUD
+Patient_Service -> Billing_Service: Billing APIs GRPC
+
+
+Patient_Service -> Kafka: Publish Patient Events
+Billing_Service -> Kafka: Publish Billing Events
+Analytics_Service -> Kafka: Consume Patient Events
+
+API_Gateway -[hidden]-> Kafka
+Auth_Service -[hidden]-> Kafka
+
+database DB1 as PatientDB
+database DB2 as BillingDB
+Patient_Service --> PatientDB
+Auth_Service --> BillingDB
+@enduml
+```
 
 ## Overview
 This project is a modular microservices-based system for managing patients, billing, analytics, authentication, and API gateway. Each service is independently deployable and communicates via REST, gRPC, or Kafka events.
@@ -36,3 +162,4 @@ Each module contains a README.md with detailed design, API/event processing, and
 ---
 
 For more details, see the README.md inside each module folder.
+der.
